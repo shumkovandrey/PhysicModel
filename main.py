@@ -4,7 +4,7 @@ import pygame as pg
 
 
 class Molecule(pg.sprite.Sprite):
-    def __init__(self, pos, radius, color=(255, 0, 0), speed=4):
+    def __init__(self, pos, radius, color=(255, 0, 0), speed=2):
         super().__init__()
 
         self.pos = pos
@@ -49,8 +49,8 @@ class Molecule(pg.sprite.Sprite):
 
 
     def update_parameters(self):
-        """self.velocity_x += randint(-2, 2) * self.speed
-        self.velocity_y += randint(-2, 2) * self.speed"""
+        self.velocity_x = randint(-2, 2) * self.speed
+        self.velocity_y = randint(-2, 2) * self.speed
 
         self.rect.x += self.velocity_x
         self.rect.y += self.velocity_y
@@ -67,14 +67,25 @@ class Molecule(pg.sprite.Sprite):
 
 WIDTH = 700
 HEIGHT = 500
-window = pg.display.set_mode((WIDTH, HEIGHT))
+window = pg.display.set_mode((WIDTH, HEIGHT), pg.RESIZABLE)
 pg.display.set_caption('Physic simulation')
 
 
 molecules = pg.sprite.Group()
 
-mol1 = Molecule((100, 100), 25)
-mol2 = Molecule((300, 300), 25)
+cnt_x = 5
+cnt_y = 6
+radius = 10
+dist_x = (WIDTH - (cnt_x * radius * 2)) // (cnt_x-1)
+dist_y = (HEIGHT - (cnt_y * radius * 2)) // (cnt_y-1)
+
+print(dist_x, dist_y)
+
+for i in range(cnt_x * cnt_y):
+    Molecule((radius + i % cnt_x * (dist_x + radius * 2), radius + i // cnt_x * (dist_y + radius * 2)), radius, (255 * (i < (cnt_y * cnt_x // 2)), 0, 255 * (i >= (cnt_y * cnt_x // 2))))
+
+"""for i in range(cnt_x * (cnt_y//2)):
+    Molecule((radius + i % cnt_x * (dist_x + radius * 2), radius + HEIGHT//2 + i // cnt_x * (dist_y + radius * 2)), radius)"""
 
 clock = pg.time.Clock()
 FPS = 60
@@ -87,7 +98,7 @@ while running:
         if e.type == pg.QUIT:
             running = False
 
-    key_pressed = pg.key.get_pressed()
+    """key_pressed = pg.key.get_pressed()
     if key_pressed[pg.K_a]:
         mol1.velocity_x = -mol1.speed
     elif key_pressed[pg.K_d]:
@@ -99,20 +110,7 @@ while running:
     elif key_pressed[pg.K_s]:
         mol1.velocity_y = mol1.speed
     else:
-        mol1.velocity_y = 0
-
-    if key_pressed[pg.K_LEFT]:
-        mol2.velocity_x = -mol2.speed
-    elif key_pressed[pg.K_RIGHT]:
-        mol2.velocity_x = mol2.speed
-    else:
-        mol2.velocity_x = 0
-    if key_pressed[pg.K_UP]:
-        mol2.velocity_y = -mol2.speed
-    elif key_pressed[pg.K_DOWN]:
-        mol2.velocity_y = mol2.speed
-    else:
-        mol2.velocity_y = 0
+        mol1.velocity_y = 0"""
 
     window.fill((255, 255, 255))
 
