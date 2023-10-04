@@ -1,4 +1,4 @@
-from random import randint
+from random import randint, uniform
 
 import pygame as pg
 
@@ -46,7 +46,7 @@ class NonMoleculeObject(pg.sprite.Sprite):
 
 
 class Molecule(pg.sprite.Sprite):
-    def __init__(self, pos, color=(100, 100, 100), speed=2, power=120, radius=6):
+    def __init__(self, pos, color=(100, 100, 100), attraction_speed=2, speed=5, power=120, radius=6):
         super().__init__()
 
         self.pos = list(pos)
@@ -54,6 +54,7 @@ class Molecule(pg.sprite.Sprite):
         self.color = color
 
         self.speed = speed
+        self.attraction_speed = attraction_speed
         self.velocity_x = 0
         self.velocity_y = 0
         self.power = power
@@ -112,19 +113,25 @@ class Molecule(pg.sprite.Sprite):
             if not near_mols:
                 near_mols = [near]
 
+            flag = 1
+
             for i in near_mols:
-                if get_dist(self.pos, i.pos) <= self.power:
+                if (i.radius+0.5*i.radius + self.radius+0.5*self.radius + self.attraction_speed) <= get_dist(self.pos, i.pos) <= self.power:
                     ratio_x = (self.pos[0] - i.pos[0]) / get_dist(self.pos, i.pos)
                     ratio_y = (self.pos[1] - i.pos[1]) / get_dist(self.pos, i.pos)
 
-                    if get_dist(self.pos, i.pos) >= (i.radius+0.5*i.radius + self.radius+0.5*self.radius + 2):
-                        self.velocity_x += self.speed * ratio_x * -coe
-                        self.velocity_y += self.speed * ratio_y * -coe
-                        i.velocity_x += i.speed * ratio_x * coe
-                        i.velocity_y += i.speed * ratio_y * coe
-            # else:
-            #     self.velocity_x += self.speed * randint(-2, 2)
-            #     self.velocity_y += self.speed * randint(-2, 2)
+                    self.velocity_x += self.attraction_speed * ratio_x * -coe
+                    self.velocity_y += self.attraction_speed * ratio_y * -coe
+                    i.velocity_x += i.attraction_speed * ratio_x * coe
+                    i.velocity_y += i.attraction_speed * ratio_y * coe
+                elif (i.radius+0.5*i.radius + self.radius+0.5*self.radius + self.attraction_speed) > get_dist(self.pos, i.pos):
+                    flag = 0
+                    pg.draw.line(window, (0, 255, 0), i.pos, self.pos)
+
+            print(near_mols)
+            self.velocity_x += self.speed * (uniform(-1, 1) if flag else uniform(0, 0))
+            self.velocity_y += self.speed * (uniform(-1, 1) if flag else uniform(0, 0))
+
 
 
     def update_parameters(self):
@@ -152,16 +159,18 @@ class RedMolecule(Molecule):
         red_mols.append(self)
 
     def reset(self):
+        pass
         self.follow(red_mols, 1)
 
 class BlueMolecule(Molecule):
     def __init__(self, pos):
-        super().__init__(pos, (0, 0, 255), 2)
+        super().__init__(pos, (0, 0, 255))
         blue_mols.append(self)
 
     def reset(self):
         pass
-        self.follow(red_mols, 1)
+        self.follow(red_mols, -1)
+        self.follow(blue_mols, -1)
 
 class YellowMolecule(Molecule):
     def __init__(self, pos):
@@ -192,7 +201,7 @@ is_visible = False
 for _ in range(100):
     RedMolecule((randint(0, WIDTH), randint(0, HEIGHT)))
 
-# for _ in range(50):
+# for _ in range(75):
 #     BlueMolecule((randint(0, WIDTH), randint(0, HEIGHT)))
 #
 # for _ in range(50):
