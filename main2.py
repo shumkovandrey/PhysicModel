@@ -92,6 +92,10 @@ class Molecule(pg.sprite.Sprite):
         elif self.pos[1]+self.radius > HEIGHT:
             self.pos[1] = HEIGHT - self.radius
 
+    def crystal_cell(self):
+        self.pos[0] = round(self.pos[0] / (3 * self.radius)) * 3 * self.radius
+        self.pos[1] = round(self.pos[1] / (3 * self.radius)) * 3 * self.radius
+
     def reset(self):
         pass
 
@@ -101,7 +105,7 @@ class Molecule(pg.sprite.Sprite):
         if self in lst:
             lst.remove(self)
 
-        if len(lst) > 0:
+        if len(lst) > 0 and aggregate_state:
             near = lst[0]
             near_mols = []
             for i in lst[1:]:
@@ -128,9 +132,13 @@ class Molecule(pg.sprite.Sprite):
                     flag = 0
                     pg.draw.line(window, (0, 255, 0), i.pos, self.pos)
 
-            print(near_mols)
-            self.velocity_x += self.speed * (uniform(-1, 1) if flag else uniform(0, 0))
-            self.velocity_y += self.speed * (uniform(-1, 1) if flag else uniform(0, 0))
+            self.velocity_x += self.speed * (uniform(-1, 1) if flag else uniform(-0.5, 0.5))
+            self.velocity_y += self.speed * (uniform(-1, 1) if flag else uniform(-0.5, 0.5))
+
+        else:
+            self.velocity_x += self.speed * uniform(-0.1, 0.1)
+            self.velocity_y += self.speed * uniform(-0.1, 0.1)
+            self.crystal_cell()
 
 
 
@@ -139,6 +147,7 @@ class Molecule(pg.sprite.Sprite):
         if not is_pause:
             self.reset()
 
+            #if aggregate_state:
             self.check_collisions()
 
         self.pos[0] += self.velocity_x
@@ -162,6 +171,7 @@ class RedMolecule(Molecule):
         pass
         self.follow(red_mols, 1)
 
+
 class BlueMolecule(Molecule):
     def __init__(self, pos):
         super().__init__(pos, (0, 0, 255))
@@ -171,6 +181,17 @@ class BlueMolecule(Molecule):
         pass
         self.follow(red_mols, -1)
         self.follow(blue_mols, -1)
+
+    def crystal_cell(self):
+        x, y = self.pos
+        self.pos[0] = round(self.pos[0] / (3 * self.radius)) * 3 * self.radius
+        self.pos[1] = round(self.pos[1] / (3 * self.radius)) * 3 * self.radius
+        if self.pos[0] // (3 * self.radius) % 2 and self.pos[1] // (3 * self.radius) % 2:
+            i = x / (3 * self.radius)
+            j = y / (3 * self.radius)
+            print(i, j)
+            self.pos[0] = (i - 1) * 3 * self.radius if i - int(i) < j - int(j) else i * 3 * self.radius
+            self.pos[1] = (j - 1) * 3 * self.radius if i - int(i) > j - int(j) else j * 3 * self.radius
 
 class YellowMolecule(Molecule):
     def __init__(self, pos):
@@ -194,15 +215,18 @@ red_mols = []
 blue_mols = []
 yellow_mols = []
 
+aggregate_state = True
+
 magnit = NonMoleculeObject((0, 0), 20)
 objects.remove_internal(magnit)
 is_visible = False
 
+
 for _ in range(100):
     RedMolecule((randint(0, WIDTH), randint(0, HEIGHT)))
 
-# for _ in range(75):
-#     BlueMolecule((randint(0, WIDTH), randint(0, HEIGHT)))
+for _ in range(100):
+    BlueMolecule((randint(0, WIDTH), randint(0, HEIGHT)))
 #
 # for _ in range(50):
 #     YellowMolecule((randint(0, WIDTH), randint(0, HEIGHT)))
@@ -212,7 +236,7 @@ FPS = 60
 
 offset_x = 0
 offset_y = 0
-is_pause = False
+is_pause = True
 
 running = True
 
@@ -222,7 +246,8 @@ while running:
         if e.type == pg.QUIT:
             running = False
         if e.type == pg.MOUSEBUTTONDOWN:
-            RedMolecule((pg.mouse.get_pos()[0]-offset_x, pg.mouse.get_pos()[1]-offset_y))
+            #RedMolecule((pg.mouse.get_pos()[0]-offset_x, pg.mouse.get_pos()[1]-offset_y))
+            aggregate_state = not aggregate_state
         if e.type == pg.KEYDOWN:
             if e.key == pg.K_q:
                 is_visible = not is_visible
@@ -248,6 +273,18 @@ while running:
     window.fill((255, 255, 255))
 
     objects.update()
+
+
+
+    if is_pause:
+        for i in range(round(WIDTH / 18)):
+            pg.draw.line(window, (0, 0, 255), (i * 18, 0), (i * 18, HEIGHT))
+        for i in range(round(HEIGHT / 18)):
+            pg.draw.line(window, (0, 0, 255), (0, i * 18), (WIDTH, i * 18))
+        for i in range(round(HEIGHT/36)):
+            for j in range(round(WIDTH / 36)):
+                pg.draw.circle(window, (0, 255, 0), (i * 36 + 18, j * 36 + 18), 6)
+
 
     clock.tick(FPS)
     pg.display.update()
