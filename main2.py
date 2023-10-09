@@ -17,6 +17,7 @@ class NonMoleculeObject(pg.sprite.Sprite):
 
         self.velocity_x = 0
         self.velocity_y = 0
+        self.attraction_speed = 0
 
         objects.add_internal(self)
 
@@ -46,7 +47,7 @@ class NonMoleculeObject(pg.sprite.Sprite):
 
 
 class Molecule(pg.sprite.Sprite):
-    def __init__(self, pos, color=(100, 100, 100), attraction_speed=2, speed=5, power=120, radius=6):
+    def __init__(self, pos, color=(100, 100, 100), attraction_speed=2, speed=5, power=1200, radius=6):
         super().__init__()
 
         self.pos = list(pos)
@@ -169,6 +170,7 @@ class RedMolecule(Molecule):
 
     def reset(self):
         pass
+        self.follow([magnit], 1)
         self.follow(red_mols, 1)
 
 
@@ -179,8 +181,7 @@ class BlueMolecule(Molecule):
 
     def reset(self):
         pass
-        self.follow(red_mols, -1)
-        self.follow(blue_mols, -1)
+        self.follow([magnit], 1)
 
     def crystal_cell(self):
         x, y = self.pos
@@ -189,7 +190,6 @@ class BlueMolecule(Molecule):
         if self.pos[0] // (3 * self.radius) % 2 and self.pos[1] // (3 * self.radius) % 2:
             i = x / (3 * self.radius)
             j = y / (3 * self.radius)
-            print(i, j)
             self.pos[0] = (i - 1) * 3 * self.radius if i - int(i) < j - int(j) else i * 3 * self.radius
             self.pos[1] = (j - 1) * 3 * self.radius if i - int(i) > j - int(j) else j * 3 * self.radius
 
@@ -222,10 +222,10 @@ objects.remove_internal(magnit)
 is_visible = False
 
 
-for _ in range(100):
-    RedMolecule((randint(0, WIDTH), randint(0, HEIGHT)))
+# for _ in range(100):
+#     RedMolecule((randint(0, WIDTH), randint(0, HEIGHT)))
 
-for _ in range(100):
+for _ in range(300):
     BlueMolecule((randint(0, WIDTH), randint(0, HEIGHT)))
 #
 # for _ in range(50):
