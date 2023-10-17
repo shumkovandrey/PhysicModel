@@ -19,6 +19,7 @@ class GameObject(pg.sprite.Sprite):
         super().__init__()
 
         self.pos = list(pos)
+        self.last_pos = self.pos.copy()
         self.size = size
         self.color = color
         self.properties = {}
@@ -31,6 +32,7 @@ class GameObject(pg.sprite.Sprite):
         self.velocity_x = 0
         self.velocity_y = 0
         self.last_velocity = [0, 0]
+        self.collided = []
 
         objects.add_internal(self)
 
@@ -40,8 +42,12 @@ class GameObject(pg.sprite.Sprite):
     def update_parameters(self):
         # self.velocity_x = randint(-2, 2) * self.speed
         # self.velocity_y = randint(-2, 2) * self.speed
+        self.collided = pg.sprite.spritecollide(self, objects.sprites(), False)
+        self.collided.remove(self)
+
         self.reset()
 
+        self.last_pos = self.pos.copy()
         self.pos[0] += self.velocity_x
         self.pos[1] += self.velocity_y
 
@@ -53,12 +59,12 @@ class GameObject(pg.sprite.Sprite):
         if self.velocity_y != 0:
             self.last_velocity[1] = self.velocity_y
 
-        self.last_pos = self.pos.copy()
         self.rect.x, self.rect.y = (self.pos[0]-self.size[0]//2, self.pos[1]-self.size[1]//2)
 
     def update(self):
         self.update_parameters()
         pg.draw.rect(window, self.color, pg.rect.Rect(self.rect.x-camera_x, self.rect.y-camera_y, self.size[0], self.size[1]), width=1)
+        pg.draw.rect(window, (0, 0, 255), pg.rect.Rect(self.last_pos[0]-self.size[0]//2-camera_x, self.last_pos[1]-self.size[1]//2-camera_y, self.size[0], self.size[1]), width=1)
         pg.draw.circle(window, (255, 0, 0) if self.properties[PhysicBody].is_falling else (0, 255, 0), (self.pos[0]-camera_x, self.pos[1]-camera_y), 2)
 
 
@@ -81,44 +87,97 @@ class PhysicBody(Property):
         for i in hits:
             if PhysicBody not in i.properties:
                 continue
-            # if self.mass > i.properties[PhysicBody].mass and par.rect.clip(i.rect):
-            #     i.velocity_x += par.velocity_x * (i.properties[PhysicBody].mass/self.mass)
-            #     i.velocity_y += par.velocity_y * (i.properties[PhysicBody].mass/self.mass)
 
             x = i.pos[0] - par.pos[0]
-            y = i.pos[1] - par.pos[1]
+            y = i.pos[0] - par.pos[0]
+            koef_x = x // abs(x) if x != 0 else 0
+            koef_y = y // abs(y) if y != 0 else 0
 
-            speed = (par.velocity_x**2 + par.velocity_y**2)**0.5
 
-            if (x > 0 and par.velocity_x > 0 or x < 0 and par.velocity_x < 0) and abs(y) + 1 < i.size[1] // 2 + par.size[1] // 2 - par.speed:
-                if not self.is_kinematic and not i.properties[PhysicBody].is_kinematic:
-                    i.velocity_x += abs(par.velocity_x)//par.velocity_x * min(abs(par.velocity_x), abs(par.velocity_x) * (self.mass / i.properties[PhysicBody].mass)) * 0.1
-                par.pos[0] -= par.velocity_x
-                par.pos[0] -= (x // abs(x)) * (par.rect.clip(i.rect).width - 1)
-                par.velocity_x = 0
-            if (y > 0 and par.velocity_y > 0 or y < 0 and par.velocity_y < 0) and abs(x) + 1 < i.size[0] // 2 + par.size[0] // 2 - par.speed:
-                if not self.is_kinematic and not i.properties[PhysicBody].is_kinematic:
-                    i.velocity_y += abs(par.velocity_y)//par.velocity_y * min(abs(par.velocity_y), abs(par.velocity_y) * (self.mass / i.properties[PhysicBody].mass)) * 0.1
-                par.pos[1] -= par.velocity_y
-                par.pos[1] -= (y // abs(y)) * (par.rect.clip(i.rect).height - 1)
-                par.velocity_y = 0
-                if y > 0 and not self.is_kinematic:
-                    self.is_falling = False
-            else:
-                self.is_falling = True
+            if i.properties[PhysicBody].mass < self.mass:
+                i.pos[0] += par.velocity_x * min(1, self.mass/i.properties[PhysicBody].mass)
+                i.pos[1] += par.velocity_y * min(1, self.mass/i.properties[PhysicBody].mass)
+                i_hits = i.collided.copy()
+                if par in i_hits:
+                    i_hits.remove(par)
+                if len(i_hits) > 0:
+                    i.pos[0] -= par.velocity_x * min(1, self.mass / i.properties[PhysicBody].mass) + koef_x
+                    i.pos[1] -= par.velocity_y * min(1, self.mass / i.properties[PhysicBody].mass) + koef_y
+            if i.properties[PhysicBody].mass > self.mass:
+                par.pos[0] += i.velocity_x * min(1, i.properties[PhysicBody].mass/self.mass)
+                par.pos[1] += i.velocity_y * min(1, i.properties[PhysicBody].mass/self.mass)
+                par_hits = par.collided.copy()
+                if i in par_hits:
+                    par_hits.remove(i)
+                if len(par_hits) > 0:
+                    par.pos[0] -= i.velocity_x * min(1, i.properties[PhysicBody].mass / self.mass) + koef_x
+                    par.pos[1] -= i.velocity_y * min(1, i.properties[PhysicBody].mass / self.mass) + koef_y
 
-            if min(i.pos[0] - i.size[0] // 2 + 10, i.pos[1] - i.size[1] // 2 + 10, i.size[0] - 20, i.size[1] - 20) > 0:
-                inside_rect = pg.rect.Rect(i.pos[0] - i.size[0] // 2 + 10, i.pos[1] - i.size[1] // 2 + 10, i.size[0] - 20, i.size[1] - 20)
-                #pg.draw.rect(window, (0, 0, 0), inside_rect)
-                if par.rect.colliderect(inside_rect) and not self.is_kinematic:
-                    if (x > 0 or x < 0) and abs(y) + 1 < i.size[1] // 2 + par.size[1] // 2:
-                        par.pos[0] -= par.last_velocity[0]
-                        x = i.pos[0] - par.pos[0]
-                        par.pos[0] -= (x // abs(x)) * (par.rect.clip(i.rect).width - 1)
-                    if (y > 0 or y < 0) and abs(x) + 1 < i.size[0] // 2 + par.size[0] // 2:
-                        par.pos[1] -= par.last_velocity[1]
-                        y = i.pos[1] - par.pos[1]
-                        par.pos[1] -= (y // abs(y)) * (par.rect.clip(i.rect).height - 1)
+        for i in hits:
+            global a
+            if PhysicBody not in i.properties:
+                continue
+            x = i.pos[0] - par.pos[0]
+            y = i.pos[0] - par.pos[0]
+            koef_x = x//abs(x) if x != 0 else 0
+            koef_y = y//abs(y) if y != 0 else 0
+
+            if not (par.velocity_x == 0 and par.velocity_y == 0):
+                if abs(par.velocity_x) >= abs(par.velocity_y):
+                    vel_x = par.velocity_x//abs(par.velocity_x) if par.velocity_x != 0 else 0
+                    ratio_vel = par.velocity_y/par.velocity_x if par.velocity_x != 0 else 0
+                    vel_y = vel_x * ratio_vel
+                    vel_rect = pg.rect.Rect(par.pos[0]-par.size[0]//2, par.pos[1]-par.size[1]//2, par.size[0], par.size[1])
+                    while vel_rect.colliderect(i.rect):
+                        vel_rect.x -= vel_x
+                        vel_rect.y -= vel_y
+                        pg.draw.rect(window, (0, 0, 0), vel_rect)
+                    par.pos[0] = vel_rect.x+par.size[0]//2
+                    par.pos[1] = vel_rect.y+par.size[1]//2
+                else:
+                    vel_y = par.velocity_y // abs(par.velocity_y) if par.velocity_y != 0 else 0
+                    ratio_vel = par.velocity_x / par.velocity_y if par.velocity_y != 0 else 0
+                    vel_x = vel_y * ratio_vel
+                    vel_rect = pg.rect.Rect(par.pos[0]-par.size[0]//2, par.pos[1]-par.size[1]//2, par.size[0], par.size[1])
+                    while vel_rect.colliderect(i.rect):
+                        vel_rect.x -= vel_x
+                        vel_rect.y -= vel_y
+                        pg.draw.rect(window, (0, 0, 0), vel_rect)
+                    par.pos[0] = vel_rect.x+par.size[0]//2
+                    par.pos[1] = vel_rect.y+par.size[1]//2
+                if y < 0:
+                    i.properties[PhysicBody].is_falling = False
+                else:
+                    i.properties[PhysicBody].is_falling = True
+            elif not (i.velocity_x == 0 and i.velocity_y == 0):
+                if abs(i.velocity_x) >= abs(i.velocity_y):
+                    vel_x = i.velocity_x//abs(i.velocity_x) if i.velocity_x != 0 else 0
+                    ratio_vel = i.velocity_y/i.velocity_x if i.velocity_x != 0 else 0
+                    vel_y = vel_x * ratio_vel
+                    vel_rect = pg.rect.Rect(i.pos[0]-i.size[0]//2, i.pos[1]-i.size[1]//2, i.size[0], i.size[1])
+                    while vel_rect.colliderect(par.rect):
+                        vel_rect.x -= vel_x
+                        vel_rect.y -= vel_y
+                        pg.draw.rect(window, (0, 0, 0), vel_rect)
+                    i.pos[0] = vel_rect.x+i.size[0]//2
+                    i.pos[1] = vel_rect.y+i.size[1]//2
+                else:
+                    vel_y = i.velocity_y // abs(i.velocity_y) if i.velocity_y != 0 else 0
+                    ratio_vel = i.velocity_x / i.velocity_y if i.velocity_y != 0 else 0
+                    vel_x = vel_y * ratio_vel
+                    vel_rect = pg.rect.Rect(i.pos[0]-i.size[0]//2, i.pos[1]-i.size[1]//2, i.size[0], i.size[1])
+                    while vel_rect.colliderect(par.rect):
+                        vel_rect.x -= vel_x
+                        vel_rect.y -= vel_y
+                        pg.draw.rect(window, (0, 0, 0), vel_rect)
+                    i.pos[0] = vel_rect.x+i.size[0]//2
+                    i.pos[1] = vel_rect.y+i.size[1]//2
+                if y < 0:
+                    i.properties[PhysicBody].is_falling = False
+                else:
+                    i.properties[PhysicBody].is_falling = True
+
+
 
         if self.is_falling and not self.is_kinematic:
             par.velocity_y += self.gravity
@@ -173,6 +232,39 @@ class Player(GameObject):
             self.velocity_y = -self.speed
         elif key_pressed[pg.K_s]:
             self.velocity_y = self.speed
+        else:
+            self.velocity_y = 0
+        # if key_pressed[pg.K_w]:
+        #     self.velocity_y = -self.speed
+        # elif key_pressed[pg.K_s]:
+        #     self.velocity_y = self.speed
+        # else:
+        #     self.velocity_y = 0
+
+
+class Player2(GameObject):
+    def __init__(self, pos, size, properties, color, speed, jump_force):
+        super().__init__(pos, size, properties, color, speed)
+        self.jump_force = jump_force
+
+    def reset(self):
+        key_pressed = pg.key.get_pressed()
+        if key_pressed[pg.K_e]:
+            ex.explode()
+        if key_pressed[pg.K_LEFT]:
+            self.velocity_x = -self.speed
+        elif key_pressed[pg.K_RIGHT]:
+            self.velocity_x = self.speed
+        else:
+            self.velocity_x = 0
+        if key_pressed[pg.K_q] and not self.properties[PhysicBody].is_falling:
+            self.velocity_y = -self.jump_force
+        elif key_pressed[pg.K_UP]:
+            self.velocity_y = -self.speed
+        elif key_pressed[pg.K_DOWN]:
+            self.velocity_y = self.speed
+        else:
+            self.velocity_y = 0
         # if key_pressed[pg.K_w]:
         #     self.velocity_y = -self.speed
         # elif key_pressed[pg.K_s]:
@@ -204,13 +296,15 @@ pg.display.set_caption('Physic simulation')
 
 camera_x = 0
 camera_y = 0
+a = True
 
 objects = pg.sprite.Group()
 
 
 mol1 = Player((300, 100), (50, 50), [PhysicBody(1000, gravity=0.0)], (255, 0, 0), 3, 4)
-mol2 = GameObject((300, 300), (100, 100), [PhysicBody(1000, gravity=0)])
-mol3 = GameObject((375, 300), (10, 10), [PhysicBody(1000, gravity=0)])
+mol1_2 = Player2((300, 100), (50, 50), [PhysicBody(100, gravity=0.0)], (255, 0, 0), 3, 4)
+mol2 = GameObject((300, 300), (100, 100), [PhysicBody(100, gravity=0)])
+mol3 = GameObject((375, 300), (10, 10), [PhysicBody(100, gravity=0)])
 floor = GameObject((350, 475), (700, 100), [PhysicBody(is_kinematic=True)])
 ex = Explosion((200, 200), [], 5)
 ex.objs.append(GameObject((190, 200), (10, 10), [PhysicBody(is_kinematic=True)]))
@@ -232,12 +326,14 @@ while running:
         if e.type == pg.QUIT:
             running = False
 
-    camera_x = mol1.pos[0] - WIDTH//2
-    camera_y = mol1.pos[1] - HEIGHT//2
 
-    window.fill((255, 255, 255))
+    if a:
+        camera_x = mol1.pos[0] - WIDTH // 2
+        camera_y = mol1.pos[1] - HEIGHT // 2
 
-    objects.update()
+        window.fill((255, 255, 255))
 
-    clock.tick(FPS)
-    pg.display.update()
+        objects.update()
+        clock.tick(FPS)
+        pg.display.update()
+
