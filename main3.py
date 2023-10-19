@@ -122,6 +122,11 @@ class PhysicBody(Property):
             koef_x = x//abs(x) if x != 0 else 0
             koef_y = y//abs(y) if y != 0 else 0
 
+            if y == par.size[1]//2+i.size[1]//2 and self.is_kinematic:
+                self.is_falling = False
+                par.velocity_y = 0
+
+
             if not (par.velocity_x == 0 and par.velocity_y == 0):
                 if abs(par.velocity_x) >= abs(par.velocity_y):
                     vel_x = par.velocity_x//abs(par.velocity_x) if par.velocity_x != 0 else 0
